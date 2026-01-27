@@ -23,33 +23,40 @@ app.use(express.static(__dirname));
 
 // --- 1. MONGODB CONNECTION ---
 const MONGO_URI = process.env.MONGO_URI;
-mongoose.connect(MONGO_URI)
-  .then(() => console.log('✅ Connected to MongoDB'))
-  .catch(err => console.log('❌ DB Error:', err.message));
+if (MONGO_URI && typeof MONGO_URI === 'string') {
+  mongoose.connect(MONGO_URI)
+    .then(() => console.log('✅ Connected to MongoDB'))
+    .catch(err => console.log('❌ DB Error:', err.message));
+} else {
+  console.log('⚠️ MONGO_URI not set. Add MONGO_URI in Render Dashboard → Environment. DB/API will not work until set.');
+}
 
-// --- 2. EMAIL CONFIGURATION (NEW) ---
-// We use the variables exactly as they appear in your .env file
-const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-        user: process.env.EMAIL_USER,      // auryvia.infotech@gmail.com
-        pass: process.env.EMAIL_PASSWORD   // Your 16-char App Password
-    }
-});
+// --- 2. EMAIL CONFIGURATION ---
+const hasEmailEnv = process.env.EMAIL_USER && process.env.EMAIL_PASSWORD;
+const transporter = hasEmailEnv ? nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASSWORD
+  }
+}) : null;
+if (!hasEmailEnv) {
+  console.log('⚠️ EMAIL_USER/EMAIL_PASSWORD not set. Add them in Render Dashboard → Environment for contact/appointment alerts.');
+}
 
-// Helper Function to Send Emails
 async function sendEmailAlert(subject, text) {
-    try {
-        await transporter.sendMail({
-            from: `"Ayurvia Bot" <${process.env.EMAIL_USER}>`,
-            to: process.env.EMAIL_USER, // Sends the alert TO yourself
-            subject: `🔔 ${subject}`,
-            text: text
-        });
-        console.log(`📧 Email sent: ${subject}`);
-    } catch (error) {
-        console.error('❌ Email Failed:', error.message);
-    }
+  if (!transporter) return;
+  try {
+    await transporter.sendMail({
+      from: `"Ayurvia Bot" <${process.env.EMAIL_USER}>`,
+      to: process.env.EMAIL_USER,
+      subject: `🔔 ${subject}`,
+      text: text
+    });
+    console.log(`📧 Email sent: ${subject}`);
+  } catch (error) {
+    console.error('❌ Email Failed:', error.message);
+  }
 }
 
 // --- 3. DATABASE MODELS ---
