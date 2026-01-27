@@ -44,6 +44,16 @@ if (!hasEmailEnv) {
   console.log('⚠️ EMAIL_USER/EMAIL_PASSWORD not set. Add them in Render Dashboard → Environment for contact/appointment alerts.');
 }
 
+const SITE_URL = process.env.SITE_URL || 'https://final-auryvia.onrender.com';
+const CONTACT_PHONE = process.env.CONTACT_PHONE || '7207310635';
+
+function getClientEmailFooter() {
+  let s = '\n\n---\n';
+  if (SITE_URL) s += `Website: ${SITE_URL}\n`;
+  if (CONTACT_PHONE) s += `Call us: ${CONTACT_PHONE}\n`;
+  return s || '\n';
+}
+
 async function sendEmailAlert(subject, text) {
   if (!transporter) return;
   try {
@@ -53,9 +63,26 @@ async function sendEmailAlert(subject, text) {
       subject: `🔔 ${subject}`,
       text: text
     });
-    console.log(`📧 Email sent: ${subject}`);
+    console.log(`📧 Admin email sent: ${subject}`);
   } catch (error) {
-    console.error('❌ Email Failed:', error.message);
+    console.error('❌ Admin Email Failed:', error.message);
+  }
+}
+
+async function sendEmailToClient(toEmail, subject, text) {
+  if (!transporter || !toEmail || typeof toEmail !== 'string') return;
+  const email = toEmail.trim().toLowerCase();
+  if (!email) return;
+  try {
+    await transporter.sendMail({
+      from: `"Auryvia Infotech" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: subject,
+      text: text
+    });
+    console.log(`📧 Client email sent to: ${email}`);
+  } catch (error) {
+    console.error('❌ Client Email Failed:', error.message);
   }
 }
 
@@ -120,12 +147,20 @@ io.on('connection', (socket) => {
           isAdminActive: false 
         }); 
         await chat.save(); 
-        
-        // 🔔 ALERT: New Chat Started
+
+        const userName = userData ? userData.name : 'Guest';
         sendEmailAlert(
-            "New Chat Started!", 
-            `User: ${userData ? userData.name : 'Guest'}\nHas started a conversation on the website.`
+          "New Chat Started!",
+          `User: ${userName}\nEmail: ${safeEmail || '-'}\nHas started a conversation on the website.`
         );
+
+        if (safeEmail) {
+          const clientBody =
+            `Hi ${userName},\n\nThanks for reaching out. We have received your message and will get back to you shortly.\n\n` +
+            `Continue the conversation or explore our site: ${SITE_URL}` +
+            getClientEmailFooter();
+          sendEmailToClient(safeEmail, "We received your message – Auryvia Infotech", clientBody);
+        }
       }
 
       const allChats = await Chat.find({}).sort({ lastUpdated: -1 });
@@ -195,31 +230,54 @@ app.post('/api/admin/login', (req, res) => {
 
 // --- 6. API ROUTES WITH EMAIL ALERTS ---
 
-// Contact Form
+// Contact Form – email both admin and client
 app.post('/api/contact', async (req, res) => {
   try {
     await new Contact(req.body).save();
-    
-    // 🔔 ALERT: New Contact Inquiry
+
+    const { name, email, subject, message } = req.body;
+    const inquiryLink = `${SITE_URL}/services.html`;
+    const contactLink = `${SITE_URL}/contact.html`;
+
     sendEmailAlert(
-        "New Contact Inquiry", 
-        `Name: ${req.body.name}\nEmail: ${req.body.email}\nSubject: ${req.body.subject}\nMessage: ${req.body.message}`
+      "New Contact Inquiry",
+      `Name: ${name}\nEmail: ${email}\nSubject: ${subject || '-'}\nMessage: ${message}`
     );
+
+    const clientBody =
+      `Hi ${name || 'there'},\n\nThank you for getting in touch. We have received your inquiry and will get back to you shortly.\n\n` +
+      `What you asked about: ${subject || 'General inquiry'}\n` +
+      `Related link: ${inquiryLink}\n` +
+      `Or contact us again: ${contactLink}` +
+      getClientEmailFooter();
+
+    sendEmailToClient(email, "We received your inquiry – Auryvia Infotech", clientBody);
 
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Appointment Booking
+// Appointment Booking – email both admin and client
 app.post('/api/appointments', async (req, res) => {
   try {
     await new Appointment(req.body).save();
 
-    // 🔔 ALERT: New Appointment
+    const { name, email, phone, type, date, slot } = req.body;
+    const slotStr = slot ? `${slot.start} - ${slot.end}` : '';
+
     sendEmailAlert(
-        "New Appointment Booked! 📅", 
-        `Name: ${req.body.name}\nPhone: ${req.body.phone}\nType: ${req.body.type}\nDate: ${req.body.date}\nTime: ${req.body.slot.start}`
+      "New Appointment Booked! 📅",
+      `Name: ${name}\nEmail: ${email}\nPhone: ${phone}\nType: ${type}\nDate: ${date}\nTime: ${slotStr}`
     );
+
+    const clientBody =
+      `Hi ${name || 'there'},\n\nYour appointment request has been received.\n\n` +
+      `Type: ${type || 'Meeting'}\nDate: ${date || '-'}\nTime: ${slotStr || '-'}\n\n` +
+      `We will confirm shortly. You can also visit our website or call us:\n` +
+      `View or book again: ${SITE_URL}` +
+      getClientEmailFooter();
+
+    sendEmailToClient(email, "Appointment request received – Auryvia Infotech", clientBody);
 
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
