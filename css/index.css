@@ -2123,11 +2123,16 @@ footer {
   line-height: 1.5;
 }
 
-.bot-message .message-content {
+.bot-message .message-content,
+.admin-message .message-content {
   background: var(--white);
   color: var(--black);
   border-bottom-left-radius: 4px;
   box-shadow: var(--shadow-sm);
+}
+
+.admin-message .message-content {
+  border-left: 3px solid var(--primary, #5865f2);
 }
 
 .user-message {

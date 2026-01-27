@@ -216,15 +216,16 @@ function connectSocket(user) {
     socket = socketUrl ? io(socketUrl) : io();
     socket.emit('user_join', user || currentUser);
     socket.on('receive_message', (data) => {
-        addMessageToUI(data.text, 'bot-message');
+        var cls = (data && data.sender === 'admin') ? 'admin-message' : 'bot-message';
+        addMessageToUI(data.text, cls);
     });
     socket.on('chat_history', (messages) => {
         const box = document.getElementById('chatbotMessages');
         if (box) {
             box.innerHTML = '';
             (messages || []).forEach(msg => {
-                const className = msg.sender === 'user' ? 'user-message' : 'bot-message';
-                addMessageToUI(msg.text, className);
+                var cls = msg.sender === 'user' ? 'user-message' : (msg.sender === 'admin' ? 'admin-message' : 'bot-message');
+                addMessageToUI(msg.text, cls);
             });
         }
     });

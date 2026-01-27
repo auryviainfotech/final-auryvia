@@ -121,7 +121,7 @@
 
 <script>
     if (!sessionStorage.getItem('adminAuth')) {
-        window.location.href = '/login.html';
+        window.location.href = '/admin/login.html';
     }
 </script>
 
@@ -256,6 +256,10 @@
         box.scrollTop = box.scrollHeight;
         document.getElementById('adminInput').value = '';
     }
+
+    window.addEventListener('beforeunload', function() {
+        if (currentChatId) socket.emit('admin_leave_chat', currentChatId);
+    });
 
     function renderChatWindow(messages) {
         const box = document.getElementById('messages');

@@ -78,15 +78,26 @@ const Appointment = mongoose.model('Appointment', new mongoose.Schema({
 }));
 
 // --- 4. SOCKET.IO LOGIC ---
+const dbReady = () => mongoose.connection.readyState === 1;
+
 io.on('connection', (socket) => {
-  
+
   socket.on('admin_connected', async () => {
+    if (!dbReady()) {
+      socket.emit('admin_update_userlist', []);
+      return;
+    }
+    try {
       const chats = await Chat.find({}).sort({ lastUpdated: -1 });
       socket.emit('admin_update_userlist', chats);
+    } catch (e) {
+      console.error(e);
+      socket.emit('admin_update_userlist', []);
+    }
   });
 
-  // User Join
   socket.on('user_join', async (userData) => {
+    if (!dbReady()) return;
     try {
       const safeEmail = (userData && userData.email) ? userData.email.toLowerCase().trim() : '';
       let chat;
@@ -122,8 +133,8 @@ io.on('connection', (socket) => {
     } catch (e) { console.error(e); }
   });
 
-  // User Message
   socket.on('send_message', async (data) => {
+    if (!dbReady()) return;
     try {
         let chat = await Chat.findOne({ socketId: socket.id });
         if (!chat) chat = new Chat({ socketId: socket.id });
@@ -148,10 +159,16 @@ io.on('connection', (socket) => {
     } catch (e) { console.error(e); }
   });
 
-  // Admin Logic
-  socket.on('admin_join_chat', async (id) => { await Chat.findOneAndUpdate({ socketId: id }, { isAdminActive: true }); });
-  socket.on('admin_leave_chat', async (id) => { await Chat.findOneAndUpdate({ socketId: id }, { isAdminActive: false }); });
+  socket.on('admin_join_chat', async (id) => {
+    if (!dbReady()) return;
+    await Chat.findOneAndUpdate({ socketId: id }, { isAdminActive: true });
+  });
+  socket.on('admin_leave_chat', async (id) => {
+    if (!dbReady()) return;
+    await Chat.findOneAndUpdate({ socketId: id }, { isAdminActive: false });
+  });
   socket.on('admin_send_message', async (data) => {
+    if (!dbReady()) return;
     const chat = await Chat.findOne({ socketId: data.targetSocketId });
     if (chat) {
       chat.messages.push({ sender: 'admin', text: data.message });
