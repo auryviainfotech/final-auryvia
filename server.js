@@ -23,40 +23,60 @@ app.use(express.static(__dirname));
 
 // --- 1. MONGODB CONNECTION ---
 const MONGO_URI = process.env.MONGO_URI;
-if (MONGO_URI && typeof MONGO_URI === 'string') {
-  mongoose.connect(MONGO_URI)
-    .then(() => console.log('✅ Connected to MongoDB'))
-    .catch(err => console.log('❌ DB Error:', err.message));
-} else {
-  console.log('⚠️ MONGO_URI not set. Add MONGO_URI in Render Dashboard → Environment. DB/API will not work until set.');
-}
+mongoose.connect(MONGO_URI)
+  .then(() => console.log('✅ Connected to MongoDB'))
+  .catch(err => console.log('❌ DB Error:', err.message));
 
-// --- 2. EMAIL CONFIGURATION ---
-const hasEmailEnv = process.env.EMAIL_USER && process.env.EMAIL_PASSWORD;
-const transporter = hasEmailEnv ? nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASSWORD
-  }
-}) : null;
-if (!hasEmailEnv) {
-  console.log('⚠️ EMAIL_USER/EMAIL_PASSWORD not set. Add them in Render Dashboard → Environment for contact/appointment alerts.');
-}
+// --- 2. EMAIL CONFIGURATION (NEW) ---
+// We use the variables exactly as they appear in your .env file
+const transporter = nodemailer.createTransport({
+    host: 'smtp.gmail.com',
+    port: 587,
+    secure: false, // true for 465, false for other ports
+    auth: {
+        user: process.env.EMAIL_USER,      // auryvia.infotech@gmail.com
+        pass: process.env.EMAIL_PASSWORD   // Your 16-char App Password
+    },
+    tls: {
+        rejectUnauthorized: false // Allow self-signed certificates
+    },
+    connectionTimeout: 10000, // 10 seconds
+    greetingTimeout: 10000,
+    socketTimeout: 10000
+});
 
+// Test email connection on startup
+transporter.verify(function(error, success) {
+    if (error) {
+        console.log('❌ Email connection failed:', error.message);
+    } else {
+        console.log('✅ Email server is ready to send messages');
+    }
+});
+
+// Helper Function to Send Emails
 async function sendEmailAlert(subject, text) {
-  if (!transporter) return;
-  try {
-    await transporter.sendMail({
-      from: `"Ayurvia Bot" <${process.env.EMAIL_USER}>`,
-      to: process.env.EMAIL_USER,
-      subject: `🔔 ${subject}`,
-      text: text
-    });
-    console.log(`📧 Email sent: ${subject}`);
-  } catch (error) {
-    console.error('❌ Email Failed:', error.message);
-  }
+    try {
+        // Use EMAIL_TO if set, otherwise fallback to EMAIL_USER
+        const recipientEmail = process.env.EMAIL_TO || process.env.EMAIL_USER;
+        
+        const mailOptions = {
+            from: `"Ayurvia Bot" <${process.env.EMAIL_USER}>`,
+            to: recipientEmail, // Recipient email address
+            subject: `🔔 ${subject}`,
+            text: text
+        };
+        
+        const info = await transporter.sendMail(mailOptions);
+        console.log(`📧 Email sent: ${subject} → ${recipientEmail} (Message ID: ${info.messageId})`);
+    } catch (error) {
+        console.error('❌ Email Failed:', error.message);
+        if (error.code === 'ETIMEDOUT' || error.code === 'ECONNECTION') {
+            console.error('   → Connection timeout. Check your internet connection and Gmail settings.');
+        } else if (error.code === 'EAUTH') {
+            console.error('   → Authentication failed. Check EMAIL_USER and EMAIL_PASSWORD in .env');
+        }
+    }
 }
 
 // --- 3. DATABASE MODELS ---
