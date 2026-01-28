@@ -27,35 +27,46 @@ mongoose.connect(MONGO_URI)
   .then(() => console.log('✅ Connected to MongoDB'))
   .catch(err => console.log('❌ DB Error:', err.message));
 
-// --- 2. EMAIL CONFIGURATION (NEW) ---
-// We use the variables exactly as they appear in your .env file
+// --- 2. EMAIL CONFIGURATION (FIXED FOR RENDER) ---
 const transporter = nodemailer.createTransport({
     host: 'smtp.gmail.com',
-    port: 587,
-    secure: false, // true for 465, false for other ports
+    port: 587,              // FIX 1: Use 587 (TLS) instead of 465
+    secure: false,          // FIX 2: Must be false for port 587
     auth: {
-        user: process.env.EMAIL_USER,      // auryvia.infotech@gmail.com
-        pass: process.env.EMAIL_PASSWORD   // Your 16-char App Password
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASSWORD
     },
     tls: {
-        rejectUnauthorized: false // Allow self-signed certificates
+        rejectUnauthorized: false
     },
-    connectionTimeout: 10000, // 10 seconds
-    greetingTimeout: 10000,
-    socketTimeout: 10000
+    family: 4,              // FIX 3: Force IPv4 (Crucial for Node 22+ on Render)
+    logger: true,           // Helpful for debugging
+    debug: true
 });
 
-// Test email connection on startup
-transporter.verify(function(error, success) {
-    if (error) {
-        console.log('❌ Email connection failed:', error.message);
-    } else {
-        console.log('✅ Email server is ready to send messages');
-    }
-});
+// Test email connection on startup (non-blocking)
+// Don't block server startup if email fails
+setTimeout(() => {
+    transporter.verify(function(error, success) {
+        if (error) {
+            console.log('⚠️  Email connection failed:', error.message);
+            console.log('   → Emails will be disabled. App will continue to work normally.');
+            console.log('   → Check: Gmail App Password, firewall rules, or use alternative email service.');
+        } else {
+            console.log('✅ Email server is ready to send messages');
+        }
+    });
+}, 2000); // Wait 2 seconds after server starts
 
 // Helper Function to Send Emails
+// Gracefully handles failures - app continues even if email fails
 async function sendEmailAlert(subject, text) {
+    // Skip if email credentials are missing
+    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
+        console.log('⚠️  Email skipped: Missing EMAIL_USER or EMAIL_PASSWORD in environment');
+        return;
+    }
+
     try {
         // Use EMAIL_TO if set, otherwise fallback to EMAIL_USER
         const recipientEmail = process.env.EMAIL_TO || process.env.EMAIL_USER;
@@ -67,15 +78,24 @@ async function sendEmailAlert(subject, text) {
             text: text
         };
         
-        const info = await transporter.sendMail(mailOptions);
+        // Set a timeout for the email send operation
+        const emailPromise = transporter.sendMail(mailOptions);
+        const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Email send timeout after 20 seconds')), 20000)
+        );
+        
+        const info = await Promise.race([emailPromise, timeoutPromise]);
         console.log(`📧 Email sent: ${subject} → ${recipientEmail} (Message ID: ${info.messageId})`);
     } catch (error) {
+        // Log error but don't throw - allow app to continue
         console.error('❌ Email Failed:', error.message);
-        if (error.code === 'ETIMEDOUT' || error.code === 'ECONNECTION') {
-            console.error('   → Connection timeout. Check your internet connection and Gmail settings.');
+        if (error.code === 'ETIMEDOUT' || error.code === 'ECONNECTION' || error.message.includes('timeout')) {
+            console.error('   → Connection timeout. This is common on cloud platforms.');
+            console.error('   → Consider using SendGrid, Mailgun, or AWS SES for production.');
         } else if (error.code === 'EAUTH') {
             console.error('   → Authentication failed. Check EMAIL_USER and EMAIL_PASSWORD in .env');
         }
+        // Don't throw - app should continue working even if email fails
     }
 }
 
