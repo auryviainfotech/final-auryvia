@@ -95,81 +95,6 @@ const visitorLoginBtn = document.getElementById('visitorLoginBtn');
 let socket = null;
 let currentUser = null;
 
-// --- Google Sign-In (must be defined before modal is shown so init runs when modal opens) ---
-var GOOGLE_CLIENT_ID = '572940371556-u6kg3akvf6nov05ud7pau7ca0huf2ifo.apps.googleusercontent.com';
-
-window.handleGoogleLogin = function(response) {
-    if (!response || !response.credential) {
-        console.warn('Google Sign-In: no credential in response');
-        return;
-    }
-    try {
-        var payload = decodeJwt(response.credential);
-        var name = payload.name || payload.given_name || 'User';
-        var email = payload.email || '';
-        if (!email) {
-            alert('We could not get your email from Google. Please use the form above.');
-            return;
-        }
-        completeLogin({ name: name, email: email });
-    } catch (e) {
-        console.error('Google login decode error:', e);
-        alert('Sign-in failed. Please try again or use the form above.');
-    }
-};
-
-function decodeJwt(token) {
-    var base64Url = (token || '').split('.')[1];
-    if (!base64Url) throw new Error('Invalid token');
-    var base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-    var jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
-        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-    }).join(''));
-    return JSON.parse(jsonPayload);
-}
-
-function completeLogin(user) {
-    if (!user || !user.email) return;
-    currentUser = { name: user.name || 'User', email: user.email };
-    sessionStorage.setItem('ayurviaUser', JSON.stringify(currentUser));
-    var modal = document.getElementById('loginModal');
-    if (modal) modal.style.display = 'none';
-    connectSocket(currentUser);
-}
-
-function initGoogleSignIn() {
-    var container = document.getElementById('googleSignInBtnContainer');
-    if (!container) return;
-    if (window.__googleSignInRendered) return;
-    if (window.google && window.google.accounts && window.google.accounts.id) {
-        if (!window.__googleSignInInitialized) {
-            window.google.accounts.id.initialize({
-                client_id: GOOGLE_CLIENT_ID,
-                callback: function(res) {
-                    if (res && res.credential && window.handleGoogleLogin) window.handleGoogleLogin(res);
-                }
-            });
-            window.__googleSignInInitialized = true;
-        }
-        try {
-            container.innerHTML = '';
-            window.google.accounts.id.renderButton(container, {
-                type: 'standard',
-                theme: 'outline',
-                size: 'large',
-                text: 'signin_with',
-                shape: 'rectangular',
-                width: 250
-            });
-            window.__googleSignInRendered = true;
-        } catch (e) {
-            console.warn('Google button render failed:', e);
-        }
-        return;
-    }
-    setTimeout(initGoogleSignIn, 200);
-}
-
 // 1. CHECK LOGIN STATUS ON LOAD
 const storedUser = sessionStorage.getItem('ayurviaUser');
 
@@ -178,56 +103,66 @@ if (storedUser) {
     currentUser = JSON.parse(storedUser);
     connectSocket(currentUser);
 } else {
-    // User is new -> Show Login Modal and init Google button
-    if (loginModal) loginModal.style.display = 'flex';
-    initGoogleSignIn();
+    // User is new -> Show Login Modal
+    if(loginModal) loginModal.style.display = 'flex';
 }
 
 // 2. HANDLE LOGIN CLICK
+function isGmailAddress(email) {
+    if (!email || typeof email !== 'string') return false;
+    const trimmed = email.trim().toLowerCase();
+    return trimmed.endsWith('@gmail.com');
+}
+
 if(visitorLoginBtn) {
     visitorLoginBtn.addEventListener('click', () => {
-        const name = (visitorNameInput && visitorNameInput.value) ? visitorNameInput.value.trim() : '';
-        const email = (visitorEmailInput && visitorEmailInput.value) ? visitorEmailInput.value.trim() : '';
+        const name = visitorNameInput.value.trim();
+        const email = visitorEmailInput.value.trim();
 
         if(!name || !email) {
-            alert("Please fill in both name and email.");
+            alert("Please fill in both fields.");
             return;
         }
 
-        // Basic email format check
-        const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRe.test(email)) {
-            alert("Please enter a valid email address.");
+        if (!isGmailAddress(email)) {
+            alert("Please enter a valid Gmail address. Only addresses ending in @gmail.com are accepted.");
             return;
         }
 
+        // Save to Session
         currentUser = { name, email };
         sessionStorage.setItem('ayurviaUser', JSON.stringify(currentUser));
-
-        if (loginModal) loginModal.style.display = 'none';
+        
+        // Hide Modal & Connect
+        loginModal.style.display = 'none';
         connectSocket(currentUser);
     });
 }
 
 // 3. CONNECT TO SERVER
 function connectSocket(user) {
-    if (typeof io === 'undefined') return;
-    const socketUrl = (typeof window !== 'undefined' && window.API_URL) ? window.API_URL : '';
-    socket = socketUrl ? io(socketUrl) : io();
-    socket.emit('user_join', user || currentUser);
-    socket.on('receive_message', (data) => {
-        addMessageToUI(data.text, 'bot-message');
-    });
-    socket.on('chat_history', (messages) => {
-        const box = document.getElementById('chatbotMessages');
-        if (box) {
-            box.innerHTML = '';
-            (messages || []).forEach(msg => {
-                const className = msg.sender === 'user' ? 'user-message' : 'bot-message';
-                addMessageToUI(msg.text, className);
-            });
-        }
-    });
+    if (typeof io !== 'undefined') {
+        socket = io();
+        // 1. Send User Data to Server
+        socket.emit('user_join', user);
+        // 2. Listen for Real-time Messages
+        socket.on('receive_message', (data) => {
+            addMessageToUI(data.text, 'bot-message');
+        });
+        // 3. NEW: Listen for Chat History (Restore old chat)
+        socket.on('chat_history', (messages) => {
+            const box = document.getElementById('chatbotMessages');
+            if(box) {
+                box.innerHTML = ''; // Clear the default "Welcome" message
+                messages.forEach(msg => {
+                    // Determine style: 'user' -> right side, 'bot'/'admin' -> left side
+                    let className = 'bot-message';
+                    if (msg.sender === 'user') className = 'user-message';
+                    addMessageToUI(msg.text, className);
+                });
+            }
+        });
+    }
 }
 
 // Toggle UI
@@ -826,6 +761,40 @@ appointmentForm?.addEventListener('submit', async (e) => {
 });
 
 initializeDatePicker();
+
+// This function runs automatically when you log in with Google
+window.handleGoogleLogin = (response) => {
+    // Decode the token
+    const responsePayload = decodeJwt(response.credential);
+    console.log("✅ Google User Verified:", responsePayload.name);
+
+    // Log them in
+    completeLogin({
+        name: responsePayload.name,
+        email: responsePayload.email
+    });
+};
+
+// Helper: Decode JWT
+function decodeJwt(token) {
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+    }).join(''));
+    return JSON.parse(jsonPayload);
+}
+
+// Helper: Complete Login
+function completeLogin(user) {
+    if (!user.name || !user.email) return;
+    sessionStorage.setItem('ayurviaUser', JSON.stringify(user));
+    if (document.getElementById('loginModal')) {
+        document.getElementById('loginModal').style.display = 'none';
+    }
+    // Connect to chat
+    connectSocket(user);
+}
 
 /* ===============================
    SPLIT SCROLL OBSERVER (Fixed & Reliable)
