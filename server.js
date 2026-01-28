@@ -27,20 +27,15 @@ mongoose.connect(MONGO_URI)
   .then(() => console.log('✅ Connected to MongoDB'))
   .catch(err => console.log('❌ DB Error:', err.message));
 
-// --- 2. EMAIL CONFIGURATION (FIXED FOR RENDER) ---
+// --- 2. EMAIL CONFIGURATION (FINAL ROBUST FIX) ---
 const transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 587,              // FIX 1: Use 587 (TLS) instead of 465
-    secure: false,          // FIX 2: Must be false for port 587
+    service: 'gmail',       // Built-in Gmail preset (Automatically uses Port 465 + SSL)
     auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASSWORD
     },
-    tls: {
-        rejectUnauthorized: false
-    },
-    family: 4,              // FIX 3: Force IPv4 (Crucial for Node 22+ on Render)
-    logger: true,           // Helpful for debugging
+    family: 4,              // CRITICAL: Forces IPv4 to prevent Node 22 network hangs
+    logger: true,           // Keep logging to debug
     debug: true
 });
 
