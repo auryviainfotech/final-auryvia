@@ -835,6 +835,165 @@ body {
   box-shadow: var(--shadow-md);
 }
 
+/* ===== LOGIN MODAL ===== */
+#loginModal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.85);
+  z-index: 9999;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+}
+
+#loginModal > div {
+  background: white;
+  padding: 40px;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 400px;
+  text-align: center;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  font-family: 'Inter', sans-serif;
+}
+
+#loginModal h2 {
+  margin-top: 0;
+  color: #1f2937;
+  font-size: 24px;
+  font-weight: 600;
+}
+
+#loginModal p {
+  color: #6b7280;
+  margin-bottom: 24px;
+  font-size: 15px;
+}
+
+#loginModal input {
+  width: 100%;
+  padding: 12px 15px;
+  margin-bottom: 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-sizing: border-box;
+  font-size: 15px;
+  outline: none;
+  font-family: 'Inter', sans-serif;
+}
+
+#loginModal input:focus {
+  border-color: #5865f2;
+  box-shadow: 0 0 0 3px rgba(88, 101, 242, 0.1);
+}
+
+#visitorLoginBtn {
+  width: 100%;
+  padding: 12px;
+  background: #5865f2;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 16px;
+  transition: 0.2s;
+  font-family: 'Inter', sans-serif;
+}
+
+#visitorLoginBtn:hover {
+  background: #4752c4;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(88, 101, 242, 0.3);
+}
+
+/* Google Sign-In Button Container */
+#googleSignInBtnContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  min-height: 44px;
+  margin-top: 0;
+}
+
+/* Ensure Google button is visible and properly sized on mobile */
+#googleSignInBtnContainer > div {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+#googleSignInBtnContainer iframe {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+/* Mobile Responsive Styles for Login Modal */
+@media (max-width: 768px) {
+  #loginModal > div {
+    padding: 32px 24px;
+    max-width: 90%;
+  }
+
+  #loginModal h2 {
+    font-size: 22px;
+  }
+
+  #loginModal p {
+    font-size: 14px;
+  }
+
+  #loginModal input {
+    padding: 11px 14px;
+    font-size: 14px;
+  }
+
+  #visitorLoginBtn {
+    padding: 11px;
+    font-size: 15px;
+  }
+
+  #googleSignInBtnContainer {
+    min-height: 40px;
+  }
+}
+
+@media (max-width: 576px) {
+  #loginModal > div {
+    padding: 28px 20px;
+  }
+
+  #loginModal h2 {
+    font-size: 20px;
+  }
+
+  #loginModal input {
+    padding: 10px 12px;
+    font-size: 14px;
+  }
+
+  #visitorLoginBtn {
+    padding: 10px;
+    font-size: 14px;
+  }
+}
+
+/* iPad Specific Styles */
+@media (min-width: 768px) and (max-width: 1024px) {
+  #loginModal > div {
+    max-width: 420px;
+    padding: 36px;
+  }
+
+  #googleSignInBtnContainer {
+    min-height: 48px;
+  }
+}
+
 /* ===== HEADER ===== */
 header {
   position: sticky;
