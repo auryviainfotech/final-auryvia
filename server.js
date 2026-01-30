@@ -42,20 +42,12 @@ const transporter = nodemailer.createTransport({
 });
 
 async function sendEmailAlert(subject, text) {
-    console.log("Attempting to send email..."); // 1. Debug Log
-
-    // Check if credentials exist
-    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
-        console.error("❌ ERROR: Missing EMAIL_USER or EMAIL_PASSWORD variables.");
-        return;
-    }
-
     try {
         const mailOptions = {
-            // CRITICAL: Brevo requires 'from' to be your verified account email
-            from: "risheduba@gmail.com", 
+            // TRICK: Use a "Name" but keep the email valid
+            from: '"Auryvia Notification" <risheduba@gmail.com>', 
             
-            // You can send TO anywhere you want
+            // Send to your business email
             to: "auryvia.infotech@gmail.com", 
             
             subject: `🔔 ${subject}`,
@@ -65,7 +57,7 @@ async function sendEmailAlert(subject, text) {
         const info = await transporter.sendMail(mailOptions);
         console.log(`✅ Email sent successfully! ID: ${info.messageId}`);
     } catch (error) {
-        console.error('❌ Email Failed:', error); // Print full error
+        console.error('❌ Email Failed:', error);
     }
 }
 
