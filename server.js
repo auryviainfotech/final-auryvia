@@ -27,30 +27,21 @@ mongoose.connect(MONGO_URI)
   .then(() => console.log('✅ Connected to MongoDB'))
   .catch(err => console.log('❌ DB Error:', err.message));
 
-// --- 2. EMAIL CONFIGURATION (STEALTH MODE) ---
-// We do NOT use 'service: gmail' because it forces Port 465 (often blocked).
+// --- 2. EMAIL CONFIGURATION (BREVO SMTP) ---
 const transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 587,              // Standard TLS port
-    secure: false,          // Must be false for 587
+    host: 'smtp-relay.brevo.com',
+    port: 587,
+    secure: false, // True for 465, false for other ports
     auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASSWORD
+        user: process.env.EMAIL_USER,    // This will be the 'a1268...' login
+        pass: process.env.EMAIL_PASSWORD // This will be the 'wlUAb...' key
     },
     tls: {
-        ciphers: 'SSLv3',   // Helps bypass some strict firewall handshakes
         rejectUnauthorized: false
-    },
-    family: 4,              // Force IPv4
-    debug: true             // Keep debug on to see what happens
+    }
 });
 
-// ❌ REMOVED: transporter.verify()
-// We removed the startup check. We will only connect when a user actually sends a message.
-// This prevents the "Startup Timeout" error in your logs.
-console.log('✅ Email configuration loaded (Connection will open on demand)');
-
-// Updated Helper Function (No 20s Limit)
+// Helper Function
 async function sendEmailAlert(subject, text) {
     if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
         console.log('⚠️  Email skipped: Missing credentials');
@@ -58,16 +49,13 @@ async function sendEmailAlert(subject, text) {
     }
 
     try {
-        const recipientEmail = process.env.EMAIL_TO || process.env.EMAIL_USER;
-        
         const mailOptions = {
-            from: `"Ayurvia Bot" <${process.env.EMAIL_USER}>`,
-            to: recipientEmail,
+            from: "risheduba@gmail.com", // <--- THIS MUST BE YOUR REAL GMAIL FOR NOW
+            to: "risheduba@gmail.com",   // Send it to yourself to test
             subject: `🔔 ${subject}`,
             text: text
         };
         
-        // Removed the "Promise.race" 20s timeout. Let Nodemailer handle timeouts.
         const info = await transporter.sendMail(mailOptions);
         console.log(`📧 Email sent successfully: ${info.messageId}`);
     } catch (error) {
