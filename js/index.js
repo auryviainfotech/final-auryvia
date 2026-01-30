@@ -797,6 +797,62 @@ function completeLogin(user) {
 }
 
 /* ===============================
+   GOOGLE SIGN-IN INITIALIZATION
+   =============================== */
+/* 
+   HOW TO GET YOUR GOOGLE CLIENT ID:
+   1. Go to https://console.cloud.google.com/
+   2. Create a new project or select an existing one
+   3. Enable "Google+ API" or "Google Identity Services"
+   4. Go to "Credentials" in the left sidebar
+   5. Click "Create Credentials" > "OAuth 2.0 Client ID"
+   6. Select "Web application"
+   7. Add your website URL to "Authorized JavaScript origins"
+      - For local testing: http://localhost:3000 (or your port)
+      - For production: https://yourdomain.com
+   8. Add redirect URIs if needed
+   9. Copy the Client ID and paste it below
+*/
+function initializeGoogleSignIn() {
+    // Wait for Google API to load
+    if (typeof google === 'undefined' || !google.accounts) {
+        setTimeout(initializeGoogleSignIn, 100);
+        return;
+    }
+
+    // Initialize Google Sign-In
+    google.accounts.id.initialize({
+        client_id: 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com', // Replace with your actual Client ID from Google Cloud Console
+        callback: window.handleGoogleLogin,
+        auto_select: false,
+        cancel_on_tap_outside: true
+    });
+
+    // Render the button
+    const container = document.getElementById('googleSignInBtnContainer');
+    if (container) {
+        google.accounts.id.renderButton(
+            container,
+            {
+                theme: 'outline',
+                size: 'large',
+                width: container.offsetWidth || 350,
+                text: 'continue_with',
+                shape: 'rectangular',
+                logo_alignment: 'left'
+            }
+        );
+    }
+}
+
+// Initialize Google Sign-In when page loads
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeGoogleSignIn);
+} else {
+    initializeGoogleSignIn();
+}
+
+/* ===============================
    SPLIT SCROLL OBSERVER (Fixed & Reliable)
    =============================== */
 const projectItems = document.querySelectorAll('.project-item');
