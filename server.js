@@ -27,39 +27,45 @@ mongoose.connect(MONGO_URI)
   .then(() => console.log('✅ Connected to MongoDB'))
   .catch(err => console.log('❌ DB Error:', err.message));
 
-// --- 2. EMAIL CONFIGURATION (BREVO SMTP) ---
+// --- 2. EMAIL CONFIGURATION (BREVO FIXED) ---
 const transporter = nodemailer.createTransport({
     host: 'smtp-relay.brevo.com',
     port: 587,
-    secure: false, // True for 465, false for other ports
+    secure: false,
     auth: {
-        user: process.env.EMAIL_USER,    // This will be the 'a1268...' login
-        pass: process.env.EMAIL_PASSWORD // This will be the 'wlUAb...' key
+        user: process.env.EMAIL_USER,    // The "a1268..." login
+        pass: process.env.EMAIL_PASSWORD // The "wlUAb..." key
     },
     tls: {
         rejectUnauthorized: false
     }
 });
 
-// Helper Function
 async function sendEmailAlert(subject, text) {
+    console.log("Attempting to send email..."); // 1. Debug Log
+
+    // Check if credentials exist
     if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
-        console.log('⚠️  Email skipped: Missing credentials');
+        console.error("❌ ERROR: Missing EMAIL_USER or EMAIL_PASSWORD variables.");
         return;
     }
 
     try {
         const mailOptions = {
-            from: "risheduba@gmail.com", // <--- THIS MUST BE YOUR REAL GMAIL FOR NOW
-            to: "risheduba@gmail.com",   // Send it to yourself to test
+            // CRITICAL: Brevo requires 'from' to be your verified account email
+            from: "risheduba@gmail.com", 
+            
+            // You can send TO anywhere you want
+            to: "auryvia.infotech@gmail.com", 
+            
             subject: `🔔 ${subject}`,
             text: text
         };
         
         const info = await transporter.sendMail(mailOptions);
-        console.log(`📧 Email sent successfully: ${info.messageId}`);
+        console.log(`✅ Email sent successfully! ID: ${info.messageId}`);
     } catch (error) {
-        console.error('❌ Email Failed:', error.message);
+        console.error('❌ Email Failed:', error); // Print full error
     }
 }
 
